@@ -1,0 +1,33 @@
+name: Deploy Welding Platform
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+      - name: Build containers
+        run: docker-compose -f docker-compose.yml build
+      - name: Run tests
+        run: |
+          docker-compose -f docker-compose.yml up -d
+          docker-compose exec backend python manage.py test
+          docker-compose exec frontend npm run test
+
+  deploy-prod:
+    needs: test-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: azure/setup-helm@v3
+      - uses: hashicorp/setup-terraform@v2
+      - name: Deploy infrastructure
+        run: |
+          cd infra
+          terraform init
+          terraform apply -auto-approve
